@@ -1,192 +1,227 @@
-# Transfer over MCP (ToMCP)
+# ToMCP — Transfer over MCP
 
-> MCP as a negotiation/discovery layer for data transfer — not as the pipe itself.
+> MCP as a negotiation layer for data transfer — not the pipe itself.
 
-## The Idea
+**Protocols become documentation. Documentation becomes executable.**
 
-MCP today is used as both the control plane and the data plane. When an agent calls a tool and gets a 50MB response back, that blob travels through JSON-RPC base64. This doesn't scale.
+[![CI](https://github.com/bhanquier/tomcp/actions/workflows/ci.yml/badge.svg)](https://github.com/bhanquier/tomcp/actions/workflows/ci.yml)
+[![SEP-2433](https://img.shields.io/badge/SEP-2433-blue)](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2433)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**ToMCP** proposes a separation: MCP remains the **control plane** (discovery, negotiation, capability exchange) and delegates actual data transfer to the **optimal channel** (HTTP direct, presigned S3 URL, WebSocket stream, gRPC, filesystem path, etc.).
+## What is ToMCP?
+
+MCP today passes everything through JSON-RPC — including 50MB datasets, binary files, and streaming data. ToMCP separates the **control plane** (MCP) from the **data plane** (HTTP, S3, WebSocket, etc.).
 
 ```
-Agent A                    MCP Server                   Agent B / Storage
-   │                          │                              │
-   │── tool call ────────────>│                              │
-   │                          │  (determines best channel)   │
-   │<── transfer descriptor ──│                              │
-   │    {                     │                              │
-   │      protocol: "https",  │                              │
-   │      url: "...",         │                              │
-   │      auth: "Bearer ...", │                              │
-   │      format: "ndjson",   │                              │
-   │      expires: "..."      │                              │
-   │    }                     │                              │
-   │                          │                              │
-   │──────────── direct transfer ───────────────────────────>│
+Agent                      MCP Server                    Data Source
+  │── tool call ──────────>│                              │
+  │<── Transfer Descriptor ─│  { protocol, endpoint,      │
+  │                         │    auth, description... }    │
+  │─────────── direct transfer ──────────────────────────>│
 ```
 
-## Two Levels
+## Three Levels
 
-### Level 1 — Descriptor (routing)
+| Level | What happens | Tokens | Reliability |
+|-------|-------------|--------|-------------|
+| **Level 1** | Native handler (http, fs) — no LLM | 0 | Deterministic |
+| **Level 1.5** | Cached LLM code — JIT compiled protocol | 0 | Deterministic after 1st run |
+| **Level 2** | LLM reads description, generates code, executes | 2K-10K | Probabilistic (with retry) |
 
-MCP returns a structured Transfer Descriptor. The client **already knows** the protocol. Deterministic, cheap (~100 tokens), but limited to protocols the client supports.
+**Level 1.5** is the key innovation: the LLM "compiles" a protocol once, then it's cached and replayed. First run costs tokens, every subsequent run is free.
 
-### Level 2 — Description (teaching)
+## Packages
 
-MCP **describes the protocol** so the client LLM can generate the code to execute it — even for protocols it has never seen before. This is a **protocol compiler**: documentation becomes executable code.
+```bash
+npm install @tomcp/types @tomcp/server @tomcp/client
+```
 
-| | Level 1 (Descriptor) | Level 2 (Description) |
-|---|---|---|
-| Tokens | ~100 | ~2,000–10,000 |
-| Reliability | Deterministic | Probabilistic (with retry/escalation) |
-| Client prerequisite | Know the protocol | Have a runtime (Node.js, Python...) |
-| Universality | Known protocols only | **Any describable protocol** |
-| Analogy | HTTP 302 redirect | RFC-as-runtime |
+| Package | What it does |
+|---------|-------------|
+| `@tomcp/types` | Zod schemas + TypeScript types for Transfer Descriptors |
+| `@tomcp/server` | `buildDescriptor()`, `tomcpResult()`, marketplace, upload helpers |
+| `@tomcp/client` | `handleDescriptor()`, LLM providers, sandbox, cache, chains |
+
+## Quick Start
+
+### Server — return descriptors instead of large payloads
+
+```typescript
+import { tomcpResult } from '@tomcp/server'
+
+server.tool('export_data', schema, async (args) => {
+  const data = await queryDB(args)  // might be 50MB
+  return tomcpResult(data, {
+    threshold: 1_000_000,  // > 1MB → return descriptor
+    endpoint: 'https://my-cdn.com/exports/latest',
+    protocol: 'https',
+  })
+})
+```
+
+### Client — handle descriptors automatically
+
+```typescript
+import { handleDescriptor } from '@tomcp/client'
+
+// Level 1:   descriptor has no description → native fetch
+// Level 1.5: description matches cache → replay cached code (0 tokens)
+// Level 2:   new description → LLM generates code → cache for next time
+const result = await handleDescriptor(descriptor)
+```
+
+### Protocol Marketplace — discover and share protocols
+
+```typescript
+import { registerMarketplaceTools, marketplace } from '@tomcp/server'
+
+// Register marketplace tools on your MCP server
+registerMarketplaceTools(server, { builtins: true })
+
+// Agents can now:
+// → tomcp_marketplace_search({ tag: "pagination" })
+// → tomcp_marketplace_get({ protocol_id: "http-paginated", endpoint: "..." })
+// → tomcp_marketplace_publish({ id: "my-api", description_high: "..." })
+```
+
+### Transfer Chains — multi-hop pipelines
+
+```typescript
+import { executeChain, chainStep } from '@tomcp/client'
+
+const result = await executeChain([
+  chainStep('Fetch data', fetchDescriptor),
+  {
+    label: 'Transform',
+    descriptor: transformDescriptor,
+    transform: (data) => (data as any[]).filter(r => r.active),
+  },
+  chainStep('Deliver', uploadDescriptor),
+])
+// Data flows: API A → transform → API C (MCP never touches the data)
+```
+
+### Redis Peer Cache — share compiled protocols across agents
+
+```typescript
+import { createCodeCache, handleDescriptor } from '@tomcp/client'
+
+const cache = createCodeCache({
+  redis: { url: 'redis://localhost:6379', ttl: 604800 }  // 7 days
+})
+
+// Agent A compiles a protocol → stored in Redis
+await handleDescriptor(descriptor, { cache })
+
+// Agent B (different process) → cache hit → 0 tokens
+await handleDescriptor(descriptor, { cache })
+```
+
+### Observability — trace every transfer
+
+```typescript
+import { tracer } from '@tomcp/client'
+
+tracer.addListener({
+  onTransfer(trace) {
+    console.log(`${trace.level} ${trace.protocol}: ${trace.status} (${trace.duration_ms}ms)`)
+  }
+})
+
+const stats = tracer.stats()
+// { total: 42, success: 40, cache_hits: 35, tokens_saved_count: 38, avg_duration_ms: 120 }
+```
+
+### Bidirectional — upload descriptors
+
+```typescript
+import { buildUploadDescriptor, buildPresignedUploadDescriptor } from '@tomcp/server'
+
+// Tell the client where to upload
+const descriptor = buildPresignedUploadDescriptor({
+  presignedUrl: 'https://storage.example.com/upload?token=...',
+  contentType: 'application/pdf',
+  maxSize: 50_000_000,
+  expiresIn: 3600,
+})
+```
+
+## LLM Providers
+
+```typescript
+import { createGeminiProvider, createAnthropicProvider } from '@tomcp/client'
+
+// Auto-detect from env vars (GEMINI_API_KEY or ANTHROPIC_API_KEY)
+const result = await handleDescriptor(descriptor)
+
+// Or explicit
+const result = await handleDescriptor(descriptor, {
+  provider: createGeminiProvider({ apiKey: '...' })
+})
+
+// Or bring your own
+const result = await handleDescriptor(descriptor, {
+  provider: {
+    name: 'My Local LLM',
+    generateCode: async (prompt) => { /* ... */ return code }
+  }
+})
+```
 
 ## Demo
 
-The PoC demonstrates the complete Level 2 flow with three scenarios:
-
-```
-╔══════════════════════════════════════════════════════╗
-║     Transfer over MCP (ToMCP) — Level 2 Demo        ║
-║     MCP describes → LLM generates → Code executes   ║
-╚══════════════════════════════════════════════════════╝
-
-✓ acme-paginated-api        47 records   (HMAC auth + 5 pages)
-✓ tmcp-binary               10 records   (proprietary binary format)
-✓ custom-sse                47 records   (real-time SSE stream)
-```
-
-| Scenario | Protocol | What it proves |
-|----------|----------|----------------|
-| **Paginated API** | Custom REST with HMAC-SHA256 auth | LLM learns a non-standard authentication scheme and pagination loop |
-| **Binary Codec** | Proprietary binary format (magic, typed fields, footer) | LLM parses a format that exists nowhere on the internet |
-| **SSE Stream** | Server-Sent Events with custom framing (`TYPE\|JSON`) | LLM consumes a real-time stream with custom event parsing |
-
-### Running
+The demo runs 3 scenarios end-to-end — protocols the LLM has never seen:
 
 ```bash
-# Set one of these:
-export GEMINI_API_KEY=...       # Gemini 2.5 Flash
-# or
-export ANTHROPIC_API_KEY=...    # Claude Sonnet
-
-# Run
-npm install
-./demo.sh
-
-# Options
-TOMCP_TIER=full ./demo.sh       # Start at "full" detail tier
+export GEMINI_API_KEY=...  # or ANTHROPIC_API_KEY
+cd examples/demo
+npm install && ./demo.sh
 ```
 
-### How it works
-
-1. **Mock service** starts on port 4444 (3 endpoints: paginated API, binary, SSE)
-2. **MCP server** spawns via stdio transport
-3. For each scenario:
-   - Client calls `tomcp_negotiate` → receives Transfer Descriptor with protocol description
-   - Client sends `description.text` to LLM → LLM generates Node.js code
-   - Generated code runs in sandboxed subprocess → executes the actual transfer
-   - Client calls `tomcp_confirm_receipt` → reports result
-4. If a tier fails, automatically retries with more detail (high → mid → full)
+```
+✓ acme-paginated-api   47 records  (HMAC auth + 5 pages)
+✓ tmcp-binary           10 records  (proprietary binary format)
+✓ custom-sse            47 records  (real-time SSE stream)
+```
 
 ## Architecture
 
 ```
-transfer-over-mcp/
-├── src/
-│   ├── shared/types.ts              # TransferDescriptor + Level 2 types (Zod)
-│   ├── server/
-│   │   ├── index.ts                 # MCP server (stdio transport)
-│   │   ├── tools.ts                 # 3 tools: negotiate, describe, confirm
-│   │   ├── descriptors.ts           # Scenario router
-│   │   └── scenarios/
-│   │       ├── paginated-api.ts     # HMAC auth + pagination (3 tiers)
-│   │       ├── binary-codec.ts      # Proprietary binary format (3 tiers)
-│   │       └── streaming-events.ts  # Custom SSE framing (3 tiers)
-│   ├── client/
-│   │   ├── index.ts                 # Demo runner
-│   │   ├── executor.ts              # Descriptor → LLM → sandbox → result
-│   │   └── sandbox.ts               # child_process wrapper
-│   └── mock-services/
-│       └── target-api.ts            # 3 foreign protocol endpoints
-├── seps/
-│   └── 2433-transfer-descriptors.md # SEP submitted to MCP community
-├── demo.sh                          # One-command demo
-└── PROMPT.md                        # Bootstrap prompt for new sessions
+packages/
+├── types/              @tomcp/types
+│   └── TransferDescriptor, schemas, types
+├── server/             @tomcp/server
+│   ├── descriptor.ts    buildDescriptor()
+│   ├── middleware.ts    tomcpResult() — auto inline/descriptor
+│   ├── upload.ts        buildUploadDescriptor()
+│   ├── tools.ts         registerToMCPTools()
+│   ├── marketplace.ts   protocol registry
+│   └── marketplace-tools.ts  MCP tools for discovery
+└── client/             @tomcp/client
+    ├── handler.ts       handleDescriptor() — Level 1/1.5/2 routing
+    ├── executor.ts      LLM code generation + sandbox
+    ├── sandbox.ts       child_process execution
+    ├── level1.ts        native http/fs handlers
+    ├── code-cache.ts    in-memory + Redis JIT cache
+    ├── chain.ts         multi-hop transfer pipelines
+    ├── trace.ts         transfer observability
+    └── providers/       Gemini, Anthropic, BYO
 ```
 
-## Transfer Descriptor Schema
+## The Idea Behind Level 2
 
-```jsonc
-{
-  "$schema": "tomcp/v0.1",
-  "transfer_id": "uuid",
-  "mode": "fetch" | "push" | "stream",
-  "protocol": "https" | "s3-presigned" | "ws" | "custom-*",
-  "endpoint": "https://...",
-  "auth": { "type": "bearer" | "header" | "hmac", "value": "..." },
-  "format": "json" | "ndjson" | "csv" | "binary" | "parquet",
-  "compression": "none" | "gzip" | "zstd",
-  "size_hint": 52428800,
-  "expires": "ISO8601",
-  "checksum": "sha256:...",
-  "fallback": "inline",
-  // Level 2:
-  "description": {
-    "tier": "high" | "mid" | "full",
-    "text": "...",              // The protocol guide the LLM reads
-    "examples": ["..."],
-    "constraints": ["..."]
-  },
-  "sandbox": {
-    "runtime": "node" | "python",
-    "timeout_ms": 30000,
-    "allowed_hosts": ["localhost:4444"]
-  },
-  // Streaming:
-  "stream": {
-    "reconnect": false,
-    "end_signal": "END"
-  }
-}
-```
+Before LLMs, two systems that communicate had to **share an implementation** (SDK, library, driver). That's why we have hundreds of connectors, adapters, and wrappers.
 
-## Description Tiers
+With Level 2, you only need to **share a description**. The LLM bridges the gap. Any describable protocol becomes instantly usable by any agent, without pre-installed clients.
 
-| Tier | Tokens | Example | When to use |
-|------|--------|---------|-------------|
-| **high** | ~500 | "Use crypto.createHmac to sign requests, paginate with cursor" | Well-known patterns, common libraries |
-| **mid** | ~2,000 | Protocol flow without byte-level detail | Less common, but standard enough |
-| **full** | ~5,000+ | Packet formats, byte offsets, complete parsing algorithm | Proprietary/unknown, no existing library |
-
-The client automatically escalates: high → mid → full on failure.
+**Level 1.5** makes this practical: the LLM "compiles" the protocol once, then it's deterministic. First run is probabilistic (Level 2), every run after is cached (Level 1.5).
 
 ## SEP-2433
 
 This concept has been submitted as a formal proposal to the MCP community:
 
-**[SEP-2433: Transfer Descriptors — Out-of-Band Data Transfer Negotiation](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2433)**
+**[SEP-2433: Transfer Descriptors](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2433)**
 
-## Why It Matters
+## License
 
-Before LLMs, two systems that communicate had to **share an implementation** (SDK, library, driver). That's why we have hundreds of connectors, adapters, and wrappers.
-
-With Level 2, you only need to **share a description**. The LLM bridges the gap. This makes the entire integration layer between systems — arguably 40% of enterprise code — potentially obsolete.
-
-**Protocols become documentation. Documentation becomes executable.**
-
-## Prior Art
-
-| Protocol | What it does | Relation to ToMCP |
-|----------|-------------|-------------------|
-| **SDP/WebRTC** | Negotiates codec + transport before media flows | Direct analogy — ToMCP is SDP for agents |
-| **HTTP 302** | Redirect to actual resource | Simplest form of "go fetch there instead" |
-| **MCP SEP-1306** | Server provides upload URL via MCP message | Partial prior art, upload direction only |
-| **ACP `content_url`** | Message parts reference external data | Static out-of-band, no negotiation |
-| **ANP Meta-Protocol** | NL-mediated protocol negotiation between agents | Same goal, but LLM-heavy and non-deterministic |
-
----
-
-*Created: 2026-03-22 | [SEP-2433](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/2433)*
+MIT
