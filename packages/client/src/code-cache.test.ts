@@ -9,47 +9,47 @@ describe('CodeCache', () => {
     cache = createCodeCache()
   })
 
-  it('should set and get a cache entry (cache hit)', () => {
+  it('should set and get a cache entry (cache hit)', async () => {
     const desc = 'Fetch JSON from REST API'
     const code = 'console.log("hello")'
-    cache.set(desc, code, 'https')
+    await cache.set(desc, code, 'https')
 
-    const entry = cache.get(desc)
+    const entry = await cache.get(desc)
     assert.ok(entry)
     assert.equal(entry.code, code)
     assert.equal(entry.protocol, 'https')
   })
 
-  it('should return undefined on cache miss', () => {
-    const result = cache.get('nonexistent description')
+  it('should return undefined on cache miss', async () => {
+    const result = await cache.get('nonexistent description')
     assert.equal(result, undefined)
   })
 
-  it('should invalidate a cache entry', () => {
+  it('should invalidate a cache entry', async () => {
     const desc = 'Some protocol description'
-    cache.set(desc, 'code', 'https')
-    assert.ok(cache.get(desc))
+    await cache.set(desc, 'code', 'https')
+    assert.ok(await cache.get(desc))
 
-    const deleted = cache.invalidate(desc)
+    const deleted = await cache.invalidate(desc)
     assert.equal(deleted, true)
-    assert.equal(cache.get(desc), undefined)
+    assert.equal(await cache.get(desc), undefined)
   })
 
-  it('should return false when invalidating nonexistent entry', () => {
-    const deleted = cache.invalidate('nonexistent')
+  it('should return false when invalidating nonexistent entry', async () => {
+    const deleted = await cache.invalidate('nonexistent')
     assert.equal(deleted, false)
   })
 
-  it('should increment hits counter on get', () => {
+  it('should increment hits counter on get', async () => {
     const desc = 'Counting hits'
-    cache.set(desc, 'code', 'https')
+    await cache.set(desc, 'code', 'https')
 
-    cache.get(desc)
-    cache.get(desc)
-    const entry = cache.get(desc)
+    await cache.get(desc)
+    await cache.get(desc)
+    const entry = await cache.get(desc)
 
     assert.ok(entry)
-    assert.equal(entry.hits, 3) // 3 gets = 3 hits
+    assert.equal(entry.hits, 3)
   })
 
   it('should produce stable hashes for the same input', () => {
@@ -64,21 +64,21 @@ describe('CodeCache', () => {
     assert.notEqual(h1, h2)
   })
 
-  it('should return correct stats', () => {
-    cache.set('desc1', 'code1', 'https')
-    cache.set('desc2', 'code2', 'grpc')
+  it('should return correct stats', async () => {
+    await cache.set('desc1', 'code1', 'https')
+    await cache.set('desc2', 'code2', 'grpc')
 
-    const s = cache.stats() as { size: number; entries: unknown[] }
+    const s = await cache.stats()
     assert.equal(s.size, 2)
     assert.equal(s.entries.length, 2)
   })
 
-  it('should clear all entries', () => {
-    cache.set('desc1', 'code1', 'https')
-    cache.set('desc2', 'code2', 'grpc')
-    cache.clear()
+  it('should clear all entries', async () => {
+    await cache.set('desc1', 'code1', 'https')
+    await cache.set('desc2', 'code2', 'grpc')
+    await cache.clear()
 
-    const s = cache.stats() as { size: number; entries: unknown[] }
+    const s = await cache.stats()
     assert.equal(s.size, 0)
   })
 })
