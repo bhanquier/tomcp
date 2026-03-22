@@ -627,4 +627,231 @@ Print the downloaded content to stdout. For binary, use base64 encoding.`,
       sandbox: { runtime: 'node', timeout_ms: 120_000 },
     },
   })
+
+  // ── WebTorrent — P2P file transfer via magnet links ──
+
+  marketplace.publish({
+    id: 'webtorrent',
+    name: 'WebTorrent P2P File Transfer',
+    publisher: 'tomcp',
+    version: '1.0.0',
+    tags: ['p2p', 'torrent', 'webtorrent', 'magnet', 'bittorrent', 'decentralized'],
+    tiers: {
+      high: `## WebTorrent P2P File Transfer
+
+Download a file via BitTorrent protocol using WebTorrent (works in Node.js).
+
+### Setup
+Install webtorrent: the endpoint field contains a magnet URI.
+
+\`\`\`js
+import WebTorrent from 'webtorrent';
+const client = new WebTorrent();
+
+client.add(magnetURI, (torrent) => {
+  const file = torrent.files[0]; // or find by name
+  const chunks = [];
+  const stream = file.createReadStream();
+  stream.on('data', chunk => chunks.push(chunk));
+  stream.on('end', () => {
+    const buffer = Buffer.concat(chunks);
+    console.log(buffer.toString('utf-8')); // or base64 for binary
+    client.destroy();
+  });
+});
+\`\`\`
+
+### Key Points
+- The endpoint IS the magnet URI (magnet:?xt=urn:btih:...)
+- WebTorrent uses WebRTC for peer discovery — works without trackers
+- Files are verified via piece hashes — integrity is guaranteed by the protocol
+- Multiple agents downloading the same magnet seed to each other automatically
+
+### Output
+Print file content to stdout. For binary, use base64.`,
+
+      mid: `## WebTorrent P2P Transfer
+
+Use the \`webtorrent\` npm package. The endpoint is a magnet URI.
+
+\`\`\`
+const WebTorrent = require('webtorrent');
+const client = new WebTorrent();
+client.add(endpoint, torrent => {
+  torrent.files[0].getBuffer((err, buf) => {
+    console.log(buf.toString());
+    client.destroy();
+  });
+});
+\`\`\`
+
+Print file content to stdout. Destroy client when done.`,
+
+      full: `## WebTorrent — Full Protocol Description
+
+### What is WebTorrent
+WebTorrent implements the BitTorrent protocol over WebRTC (and TCP).
+It enables peer-to-peer file transfer in Node.js and browsers.
+
+### Magnet URI
+Format: \`magnet:?xt=urn:btih:<INFO_HASH>&dn=<DISPLAY_NAME>&tr=<TRACKER_URL>\`
+- INFO_HASH: 40-char hex SHA-1 (v1) or 64-char hex SHA-256 (v2) of the torrent info dictionary
+- dn: optional display name
+- tr: optional tracker URLs (WebTorrent also uses DHT and WebRTC signaling)
+
+### Protocol Flow
+1. Parse magnet URI to extract info hash
+2. Connect to DHT (Distributed Hash Table) and trackers to find peers
+3. Exchange handshake: protocol name + info hash + peer ID
+4. Request piece map (bitfield) from peers
+5. Download pieces using rarest-first strategy
+6. Verify each piece with SHA-1 hash
+7. Assemble file from verified pieces
+
+### Node.js Implementation
+\`\`\`js
+import WebTorrent from 'webtorrent';
+
+const client = new WebTorrent();
+const magnetURI = endpoint; // from descriptor
+
+const torrent = await new Promise((resolve, reject) => {
+  client.add(magnetURI, { path: '/tmp/tomcp-torrent' }, resolve);
+  setTimeout(() => reject(new Error('Torrent timeout')), 60000);
+});
+
+// Wait for download to complete
+await new Promise((resolve) => {
+  torrent.on('done', resolve);
+});
+
+// Read the first file
+const file = torrent.files[0];
+const buffer = await new Promise((resolve, reject) => {
+  file.getBuffer((err, buf) => err ? reject(err) : resolve(buf));
+});
+
+console.log(buffer.toString('utf-8'));
+client.destroy();
+\`\`\`
+
+### Multi-Agent Seeding
+When multiple agents download the same magnet URI via ToMCP:
+- Agent A starts downloading from the original seeder
+- Agent B joins — downloads from both seeder AND Agent A
+- Agent C joins — downloads from all three
+- Download speed scales with the number of agents (inverse of traditional client-server)
+
+This is the key advantage over HTTP: the more agents need the data, the FASTER it transfers.
+
+### Verification
+BitTorrent guarantees data integrity via piece hashes in the torrent metadata.
+No checksum field needed in the descriptor — the protocol handles it.
+
+### Output
+Print file content to stdout as UTF-8 or base64 (for binary files).`,
+    },
+    defaults: {
+      protocol: 'webtorrent',
+      format: 'binary',
+      mode: 'fetch',
+      sandbox: { runtime: 'node', timeout_ms: 120_000 },
+    },
+  })
+
+  // ── IPFS — Content-Addressed Fetch ──
+
+  marketplace.publish({
+    id: 'ipfs',
+    name: 'IPFS Content-Addressed Fetch',
+    publisher: 'tomcp',
+    version: '1.0.0',
+    tags: ['ipfs', 'p2p', 'content-addressed', 'decentralized', 'cid'],
+    tiers: {
+      high: `## IPFS Content-Addressed Fetch
+
+Fetch a file from IPFS using its Content Identifier (CID).
+
+### Via HTTP Gateway (simplest)
+IPFS content is accessible via HTTP gateways:
+\`\`\`
+GET https://ipfs.io/ipfs/<CID>
+GET https://dweb.link/ipfs/<CID>
+GET https://cloudflare-ipfs.com/ipfs/<CID>
+\`\`\`
+
+The endpoint field contains either:
+- A full gateway URL: \`https://ipfs.io/ipfs/QmXxx...\`
+- Just a CID: \`QmXxx...\` or \`bafyxxx...\` — prepend a gateway
+
+### Via Helia (native IPFS in Node.js)
+For direct P2P access without a gateway:
+\`\`\`js
+import { createHelia } from 'helia';
+import { unixfs } from '@helia/unixfs';
+
+const helia = await createHelia();
+const fs = unixfs(helia);
+const chunks = [];
+for await (const chunk of fs.cat(CID.parse(cid))) {
+  chunks.push(chunk);
+}
+console.log(Buffer.concat(chunks).toString());
+await helia.stop();
+\`\`\`
+
+### Key Properties
+- Content-addressed: the CID IS the hash of the content — integrity is guaranteed
+- Immutable: same CID always returns same content
+- Decentralized: content is replicated across nodes
+
+### Output
+Print file content to stdout.`,
+    },
+    defaults: {
+      protocol: 'ipfs',
+      format: 'binary',
+      mode: 'fetch',
+      sandbox: { runtime: 'node', timeout_ms: 120_000 },
+    },
+  })
+
+  // ── BitTorrent v2 Concepts ──
+
+  marketplace.publish({
+    id: 'bittorrent-v2',
+    name: 'BitTorrent v2 (SHA-256 + Merkle Trees)',
+    publisher: 'tomcp',
+    version: '1.0.0',
+    tags: ['bittorrent', 'v2', 'p2p', 'merkle', 'sha256', 'decentralized'],
+    tiers: {
+      high: `## BitTorrent v2
+
+BitTorrent v2 (BEP 52) uses SHA-256 piece hashes organized in Merkle trees.
+Use WebTorrent or a v2-compatible client.
+
+### Key Differences from v1
+- SHA-256 instead of SHA-1 for piece hashes
+- Per-file Merkle trees instead of flat piece hashes
+- Hybrid torrents can work with both v1 and v2 clients
+- Info hash is 32 bytes (SHA-256) instead of 20 bytes (SHA-1)
+
+### Magnet URI
+v2 magnet: \`magnet:?xt=urn:btmh:1220<SHA256_HEX>&dn=...\`
+Hybrid magnet includes both: \`magnet:?xt=urn:btih:<SHA1>&xt=urn:btmh:1220<SHA256>\`
+
+### For ToMCP
+Use the same WebTorrent approach. The protocol handles v1/v2 negotiation.
+Key advantage: Merkle trees enable per-file verification without downloading the entire torrent.
+
+### Output
+Print file content to stdout.`,
+    },
+    defaults: {
+      protocol: 'bittorrent-v2',
+      format: 'binary',
+      mode: 'fetch',
+      sandbox: { runtime: 'node', timeout_ms: 120_000 },
+    },
+  })
 }
