@@ -1,0 +1,37 @@
+{
+  "name": "@tomcp/mcp-server",
+  "version": "0.1.0",
+  "description": "ToMCP MCP Server — expose Transfer Descriptor tools to any MCP client",
+  "type": "module",
+  "bin": {
+    "tomcp-server": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --clean",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tomcp/types": "^0.1.0",
+    "@tomcp/server": "^0.1.0",
+    "@tomcp/client": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bhanquier/tomcp.git",
+    "directory": "packages/mcp-server"
+  },
+  "keywords": ["mcp", "tomcp", "transfer", "server"],
+  "publishConfig": {
+    "access": "public"
+  }
+}
