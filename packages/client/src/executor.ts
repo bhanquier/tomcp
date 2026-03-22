@@ -45,17 +45,20 @@ export async function executeTransfer(
 
   // Step 2: Call LLM
   console.error(`  [executor] Using ${provider.name}`)
-  console.error(`  [executor] Generating ${descriptor.sandbox.runtime} code...`)
+  const runtime = descriptor.sandbox?.runtime ?? 'node'
+  const timeout_ms = descriptor.sandbox?.timeout_ms ?? 30_000
+
+  console.error(`  [executor] Generating ${runtime} code...`)
   const rawCode = await provider.generateCode(userPrompt)
   const generatedCode = stripMarkdownFences(rawCode)
   console.error(`  [executor] Generated ${generatedCode.split('\n').length} lines of code`)
 
   // Step 3: Execute in sandbox
-  console.error(`  [executor] Executing in sandbox (timeout: ${descriptor.sandbox.timeout_ms}ms)...`)
+  console.error(`  [executor] Executing in sandbox (timeout: ${timeout_ms}ms)...`)
   const sandboxResult = await executeSandboxed({
     code: generatedCode,
-    runtime: descriptor.sandbox.runtime,
-    timeout_ms: descriptor.sandbox.timeout_ms,
+    runtime,
+    timeout_ms,
   })
 
   if (sandboxResult.stderr) {
@@ -78,7 +81,7 @@ export async function executeTransfer(
   }
 
   if (sandboxResult.timedOut) {
-    console.error(`  [executor] Sandbox timed out after ${descriptor.sandbox.timeout_ms}ms`)
+    console.error(`  [executor] Sandbox timed out after ${timeout_ms}ms`)
   }
 
   return { descriptor, generatedCode, sandboxResult, parsedOutput, success }
@@ -95,17 +98,17 @@ function buildPrompt(descriptor: TransferDescriptor, systemPrompt: string): stri
     `Endpoint: ${descriptor.endpoint}`,
     `Format: ${descriptor.format}`,
     '',
-    descriptor.description.text,
+    descriptor.description?.text ?? '',
   ]
 
-  if (descriptor.description.constraints?.length) {
+  if (descriptor.description?.constraints?.length) {
     parts.push('', '## Constraints')
     for (const c of descriptor.description.constraints) {
       parts.push(`- ${c}`)
     }
   }
 
-  if (descriptor.description.examples?.length) {
+  if (descriptor.description?.examples?.length) {
     parts.push('', '## Example')
     for (const e of descriptor.description.examples) {
       parts.push(`\`${e}\``)
