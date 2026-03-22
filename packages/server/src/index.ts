@@ -4,3 +4,4 @@ export { registerToMCPTools, type ScenarioDefinition, type RegisterOptions } fro
 export { buildUploadDescriptor, buildPresignedUploadDescriptor, type UploadDescriptorOptions } from './upload.js'
 export { marketplace, registerBuiltins, type ProtocolEntry, type MarketplaceSearchOptions } from './marketplace.js'
 export { registerMarketplaceTools } from './marketplace-tools.js'
+export { negotiate, createOffer, selectBestCandidate, type TransferOffer, type ClientCapabilities } from './negotiation.js'
