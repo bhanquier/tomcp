@@ -31,11 +31,13 @@
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": ">=0.39.0",
-    "@google/genai": ">=0.7.0"
+    "@google/genai": ">=0.7.0",
+    "redis": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": { "optional": true },
-    "@google/genai": { "optional": true }
+    "@google/genai": { "optional": true },
+    "redis": { "optional": true }
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

@@ -20,9 +20,11 @@ export function isLevel1(descriptor: TransferDescriptor): boolean {
  * Supports: http, https, fs
  */
 export async function executeLevel1(descriptor: TransferDescriptor): Promise<SandboxResult> {
-  const { protocol, endpoint, method, auth, format } = descriptor
+  if (descriptor.mode === 'push') {
+    return executeHttpPush(descriptor)
+  }
 
-  switch (protocol) {
+  switch (descriptor.protocol) {
     case 'http':
     case 'https':
       return executeHttpTransfer(descriptor)
@@ -31,10 +33,41 @@ export async function executeLevel1(descriptor: TransferDescriptor): Promise<San
     default:
       return {
         stdout: '',
-        stderr: `Level 1: unsupported protocol "${protocol}". Use Level 2 (description) instead.`,
+        stderr: `Level 1: unsupported protocol "${descriptor.protocol}". Use Level 2 (description) instead.`,
         exitCode: 1,
         timedOut: false,
       }
+  }
+}
+
+async function executeHttpPush(descriptor: TransferDescriptor): Promise<SandboxResult> {
+  try {
+    const headers: Record<string, string> = {}
+
+    if (descriptor.auth) {
+      if (descriptor.auth.type === 'bearer') {
+        headers['Authorization'] = `Bearer ${descriptor.auth.value}`
+      } else if (descriptor.auth.type === 'header') {
+        headers[descriptor.auth.header_name ?? 'Authorization'] = descriptor.auth.value
+      }
+    }
+
+    // For push mode, the descriptor tells the client where to upload.
+    // At Level 1 we return the upload info so the caller can provide data.
+    // Actual data upload requires the caller to supply a body.
+    return {
+      stdout: JSON.stringify({ status: 'ready', upload_url: descriptor.endpoint, method: descriptor.method ?? 'PUT' }),
+      stderr: '',
+      exitCode: 0,
+      timedOut: false,
+    }
+  } catch (err) {
+    return {
+      stdout: '',
+      stderr: `Push error: ${err instanceof Error ? err.message : String(err)}`,
+      exitCode: 1,
+      timedOut: false,
+    }
   }
 }
 
