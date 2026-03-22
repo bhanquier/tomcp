@@ -1,0 +1,47 @@
+{
+  "name": "@tomcp/client",
+  "version": "0.1.0",
+  "description": "Client-side handler for Transfer over MCP descriptors",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bhanquier/tomcp.git",
+    "directory": "packages/client"
+  },
+  "keywords": ["mcp", "model-context-protocol", "transfer", "agent", "llm"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@tomcp/types": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.39.0",
+    "@google/genai": ">=0.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": { "optional": true },
+    "@google/genai": { "optional": true }
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@google/genai": "^0.7.0",
+    "@types/node": "^25.5.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}

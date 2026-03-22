@@ -1,0 +1,26 @@
+{
+  "name": "tomcp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Transfer over MCP (ToMCP) — MCP as negotiation layer for data transfer",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "demo": "cd examples/demo && ./demo.sh"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bhanquier/tomcp.git"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.0"
+  }
+}
