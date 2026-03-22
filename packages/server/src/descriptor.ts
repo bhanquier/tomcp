@@ -13,7 +13,7 @@ export interface DescriptorOptions {
   expires?: string
   checksum?: string
   fallback?: 'inline' | 'error'
-  description: ProtocolDescription
+  description?: ProtocolDescription
   sandbox?: Partial<SandboxConfig>
   stream?: StreamConfig
 }
