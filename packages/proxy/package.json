@@ -1,0 +1,41 @@
+{
+  "name": "@tomcp/proxy",
+  "version": "0.1.0",
+  "description": "ToMCP proxy — intercepts large MCP responses and returns Transfer Descriptors",
+  "type": "module",
+  "bin": {
+    "tomcp-proxy": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tomcp/types": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bhanquier/tomcp.git",
+    "directory": "packages/proxy"
+  },
+  "keywords": ["mcp", "tomcp", "proxy", "adapter", "transfer"],
+  "publishConfig": {
+    "access": "public"
+  }
+}
