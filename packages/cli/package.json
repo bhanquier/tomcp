@@ -1,12 +1,14 @@
 {
   "name": "@tomcp/cli",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "CLI for Transfer over MCP — test transfers from the terminal",
   "type": "module",
   "bin": {
-    "tomcp": "./dist/index.js"
+    "tomcp": "dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --clean",
     "typecheck": "tsc --noEmit"
@@ -24,10 +26,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bhanquier/tomcp.git",
+    "url": "git+https://github.com/bhanquier/tomcp.git",
     "directory": "packages/cli"
   },
-  "keywords": ["mcp", "tomcp", "transfer", "cli"],
+  "keywords": [
+    "mcp",
+    "tomcp",
+    "transfer",
+    "cli"
+  ],
   "publishConfig": {
     "access": "public"
   }
