@@ -6,3 +6,4 @@ export { marketplace, registerBuiltins, type ProtocolEntry, type MarketplaceSear
 export { registerMarketplaceTools } from './marketplace-tools.js'
 export { negotiate, createOffer, selectBestCandidate, type TransferOffer, type ClientCapabilities } from './negotiation.js'
 export { compose, type CompositionStep, type ComposeOptions } from './compose.js'
+export { agentRegistry, type AgentAnnouncement, type AgentProtocol, type AgentSearchOptions } from './announce.js'
