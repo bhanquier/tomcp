@@ -5,3 +5,4 @@ export { buildUploadDescriptor, buildPresignedUploadDescriptor, type UploadDescr
 export { marketplace, registerBuiltins, type ProtocolEntry, type MarketplaceSearchOptions } from './marketplace.js'
 export { registerMarketplaceTools } from './marketplace-tools.js'
 export { negotiate, createOffer, selectBestCandidate, type TransferOffer, type ClientCapabilities } from './negotiation.js'
+export { compose, type CompositionStep, type ComposeOptions } from './compose.js'
