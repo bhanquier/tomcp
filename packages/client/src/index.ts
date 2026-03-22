@@ -12,3 +12,4 @@ export {
   autoDetectProvider,
 } from './providers/index.js'
 export { tracer, type TransferTrace, type TraceListener } from './trace.js'
+export { executeChain, buildChain, chainStep, type ChainStep, type ChainResult } from './chain.js'
