@@ -30,34 +30,36 @@ const HTML = `<!DOCTYPE html>
   <title>ToMCP Dashboard</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 24px; }
-    h1 { font-size: 20px; color: #fff; margin-bottom: 4px; }
-    .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
-    .card { background: #161616; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; }
-    .card .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-    .card .value { font-size: 28px; font-weight: 700; color: #fff; margin-top: 4px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e0e0e0; padding: 40px 48px; font-size: 16px; max-width: 1400px; margin: 0 auto; }
+    h1 { font-size: 28px; color: #fff; margin-bottom: 6px; font-weight: 700; }
+    .subtitle { color: #888; font-size: 16px; margin-bottom: 32px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .card { background: #161616; border: 1px solid #2a2a2a; border-radius: 12px; padding: 24px; }
+    .card .label { font-size: 15px; color: #888; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    .card .value { font-size: 30px; font-weight: 700; color: #fff; margin-top: 6px; }
     .card .value.green { color: #4ade80; }
     .card .value.red { color: #f87171; }
     .card .value.blue { color: #60a5fa; }
     .card .value.yellow { color: #facc15; }
-    h2 { font-size: 16px; color: #fff; margin: 24px 0 12px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { text-align: left; padding: 8px 12px; color: #888; border-bottom: 1px solid #2a2a2a; font-weight: 500; }
-    td { padding: 8px 12px; border-bottom: 1px solid #1a1a1a; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    h2 { font-size: 20px; color: #fff; margin: 32px 0 16px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 16px; }
+    th { text-align: left; padding: 14px 16px; color: #888; border-bottom: 2px solid #2a2a2a; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { padding: 14px 16px; border-bottom: 1px solid #1a1a1a; }
+    .badge { display: inline-block; padding: 5px 14px; border-radius: 6px; font-size: 14px; font-weight: 600; }
     .badge.l1 { background: #064e3b; color: #4ade80; }
     .badge.l15 { background: #1e3a5f; color: #60a5fa; }
     .badge.l2 { background: #4a1d96; color: #c084fc; }
     .badge.ok { background: #064e3b; color: #4ade80; }
     .badge.fail { background: #7f1d1d; color: #f87171; }
     .badge.pending { background: #3b3b00; color: #facc15; }
-    .bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: #2a2a2a; margin-top: 8px; }
+    .bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: #2a2a2a; margin-top: 12px; }
     .bar .seg { height: 100%; }
     .bar .seg.l1 { background: #4ade80; }
     .bar .seg.l15 { background: #60a5fa; }
     .bar .seg.l2 { background: #c084fc; }
-    .mono { font-family: 'SF Mono', monospace; font-size: 12px; }
+    .mono { font-family: 'SF Mono', monospace; font-size: 15px; }
+    .legend { display: flex; gap: 20px; margin-top: 12px; font-size: 15px; color: #888; }
   </style>
 </head>
 <body>
@@ -68,7 +70,7 @@ const HTML = `<!DOCTYPE html>
 
   <h2>Level Distribution</h2>
   <div class="bar" id="levelBar"></div>
-  <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:#888;">
+  <div class="legend">
     <span><span class="badge l1">L1</span> Native</span>
     <span><span class="badge l15">L1.5</span> Cached</span>
     <span><span class="badge l2">L2</span> LLM</span>
